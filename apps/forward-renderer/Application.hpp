@@ -4,6 +4,7 @@
 #include <glmlv/GLFWHandle.hpp>
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/simple_geometry.hpp>
+#include <glmlv/ViewController.hpp>
 
 
 class Application
@@ -24,11 +25,29 @@ private:
     const std::string m_ImGuiIniFilename;
     const glmlv::fs::path m_ShadersRootPath;
 
+    glmlv::ViewController m_viewController = 0;
+
     GLuint m_cubeVBO = 0;
     GLuint m_cubeIBO = 0;
     GLuint m_cubeVAO = 0;
 
+    GLuint m_sphereVBO = 0;
+    GLuint m_sphereIBO = 0;
+    GLuint m_sphereVAO = 0;
+
     glmlv::SimpleGeometry m_cube;
+    glmlv::SimpleGeometry m_sphere;
+
+    glm::mat4 m_mvMatrix;
+    glm::mat4 m_mvpMatrix;
+    glm::mat4 m_normalMatrix;
+
+    GLint m_uMVPMatrix;
+    GLint m_uMVMatrix;
+    GLint m_uNormalMatrix;
+
+    glm::mat4 m_cubeModel;
+    glm::mat4 m_sphereModel;
 
     glmlv::GLProgram m_program;
 };

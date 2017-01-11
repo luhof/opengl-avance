@@ -14,15 +14,50 @@ int Application::run()
     {
         const auto seconds = glfwGetTime();
 
+
+
         //clean gl depth buffer byte
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Put here rendering code
+        glm::mat4 projection = glm::perspective(
+            45.0f,         // The horizontal Field of View, in degrees : the amount of "zoom". Think "camera lens". Usually between 90° (extra wide) and 30° (quite zoomed in)
+            (float)m_nWindowWidth / (float)m_nWindowHeight, // Aspect Ratio. Depends on the size of your window. Notice that 4/3 == 800/600 == 1280/960, sounds familiar ?
+            0.1f,        // Near clipping plane. Keep as big as possible, or you'll get precision issues.
+            100.0f       // Far clipping plane. Keep as little as possible.
+        );
+
+        m_viewController.update((float)seconds/50.0f);
+        glm::mat4 view = m_viewController.getViewMatrix();
+        /* rotate code */
+        m_cubeModel = glm::rotate(m_cubeModel, (float)seconds/20.0f, glm::vec3(1.0, 0.0, 0.0));
+
+        m_mvMatrix = view * m_cubeModel;
+        m_mvpMatrix = projection * view * m_cubeModel;
+        m_normalMatrix = glm::transpose(glm::inverse(m_mvMatrix));
+
+        glUniformMatrix4fv(m_uMVPMatrix, 1, false, glm::value_ptr(m_mvpMatrix));
+        glUniformMatrix4fv(m_uMVMatrix, 1, false, glm::value_ptr(m_mvMatrix));
+        glUniformMatrix4fv(m_uNormalMatrix, 1, false, glm::value_ptr(m_normalMatrix));
+
         // Put here rendering code
         glBindVertexArray(m_cubeVAO);
 
         glDrawElements(GL_TRIANGLES, m_cube.indexBuffer.size(), GL_UNSIGNED_INT, nullptr);
+
+        glBindVertexArray(0);
+
+        m_mvMatrix = view * m_sphereModel;
+        m_mvpMatrix = projection * view * m_sphereModel;
+        m_normalMatrix = glm::transpose(glm::inverse(m_mvMatrix));
+
+        glUniformMatrix4fv(m_uMVPMatrix, 1, false, glm::value_ptr(m_mvpMatrix));
+        glUniformMatrix4fv(m_uMVMatrix, 1, false, glm::value_ptr(m_mvMatrix));
+        glUniformMatrix4fv(m_uNormalMatrix, 1, false, glm::value_ptr(m_normalMatrix));
+
+        glBindVertexArray(m_sphereVAO);
+
+        glDrawElements(GL_TRIANGLES, m_sphere.indexBuffer.size(), GL_UNSIGNED_INT, nullptr);
 
         glBindVertexArray(0);
         //
@@ -71,23 +106,38 @@ Application::Application(int argc, char** argv):
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
     
-
     m_cube = glmlv::makeCube();
+    m_sphere = glmlv::makeSphere(10);
 
-    // Doing the coolest VBO
+    // Doing the coolest cube VBO
     glGenBuffers(1, &m_cubeVBO);
     glBindBuffer(GL_ARRAY_BUFFER, m_cubeVBO);
     glBufferStorage(GL_ARRAY_BUFFER, m_cube.vertexBuffer.size() * sizeof(glmlv::Vertex3f3f2f), m_cube.vertexBuffer.data(), 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // Doing the coolest IBO
+    // Doing the coolest cube IBO
     glGenBuffers(1, &m_cubeIBO);
     glBindBuffer(GL_ARRAY_BUFFER, m_cubeIBO);
     glBufferStorage(GL_ARRAY_BUFFER, m_cube.indexBuffer.size() * sizeof(uint32_t), m_cube.indexBuffer.data(), 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // Doing the coolest VAO
+    // Doing the coolest cube VAO
     glGenVertexArrays(1, &m_cubeVAO);
+
+        // Doing the coolest cube VBO
+    glGenBuffers(1, &m_sphereVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_sphereVBO);
+    glBufferStorage(GL_ARRAY_BUFFER, m_sphere.vertexBuffer.size() * sizeof(glmlv::Vertex3f3f2f), m_sphere.vertexBuffer.data(), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // Doing the coolest cube IBO
+    glGenBuffers(1, &m_sphereIBO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_sphereIBO);
+    glBufferStorage(GL_ARRAY_BUFFER, m_sphere.indexBuffer.size() * sizeof(uint32_t), m_sphere.indexBuffer.data(), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // Doing the coolest cube VAO
+    glGenVertexArrays(1, &m_sphereVAO);
 
     // Here we load and compile shaders from the library
     m_program = glmlv::compileProgram({ m_ShadersRootPath / m_AppName / "cube.vs.glsl", m_ShadersRootPath / m_AppName / "cube.fs.glsl" });
@@ -98,6 +148,7 @@ Application::Application(int argc, char** argv):
     const GLint texCoordAttrLocation  = 2;
 
 
+    /* BINDING THE CUBE */
     glBindVertexArray(m_cubeVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_cubeVBO);
@@ -115,36 +166,45 @@ Application::Application(int argc, char** argv):
 
     glBindVertexArray(0);
 
+        /* BINDING THE SPHERE */
+    glBindVertexArray(m_sphereVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_sphereVBO);
+
+    glEnableVertexAttribArray(positionAttrLocation);
+    glVertexAttribPointer(positionAttrLocation, 3, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, position));
+    glEnableVertexAttribArray(normalAttrLocation);
+    glVertexAttribPointer(normalAttrLocation, 3, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, normal));
+    glEnableVertexAttribArray(texCoordAttrLocation);
+    glVertexAttribPointer(texCoordAttrLocation, 3, GL_FLOAT, GL_FALSE, sizeof(glmlv::Vertex3f3f2f), (const GLvoid*) offsetof(glmlv::Vertex3f3f2f, texCoords));
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_sphereIBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glBindVertexArray(0);
+
     m_program.use();
 
      //setting uniforms
-    auto uMVPMatrix = m_program.getUniformLocation("uMVPMatrix");
-    auto uMVMatrix = m_program.getUniformLocation("uMVMatrix");
-    auto uNormalMatrix = m_program.getUniformLocation("uNormalMatrix");
-
-    glm::mat4 projection = glm::perspective(
-    45.0f,         // The horizontal Field of View, in degrees : the amount of "zoom". Think "camera lens". Usually between 90° (extra wide) and 30° (quite zoomed in)
-    4.0f / 3.0f, // Aspect Ratio. Depends on the size of your window. Notice that 4/3 == 800/600 == 1280/960, sounds familiar ?
-    0.1f,        // Near clipping plane. Keep as big as possible, or you'll get precision issues.
-    100.0f       // Far clipping plane. Keep as little as possible.
-    );
-
-    glm::mat4 view = glm::lookAt(
-        glm::vec3(4,3,3),
-        glm::vec3(0,0,0), 
-        glm::vec3(0,1,0)  
-    );
-
-    glm::mat4 model = glm::mat4(1.0f);
-
-    glm::mat4 mvMatrix = view * model;
-    glm::mat4 mvpMatrix = projection * view * model;
-    glm::mat4 normalMatrix = glm::transpose(glm::inverse(mvMatrix));
+    m_uMVPMatrix = m_program.getUniformLocation("uMVPMatrix");
+    m_uMVMatrix = m_program.getUniformLocation("uMVMatrix");
+    m_uNormalMatrix = m_program.getUniformLocation("uNormalMatrix");
 
 
-    glUniformMatrix4fv(uMVPMatrix, 1, false, glm::value_ptr(mvpMatrix));
-    glUniformMatrix4fv(uMVMatrix, 1, false, glm::value_ptr(mvMatrix));
-    glUniformMatrix4fv(uNormalMatrix, 1, false, glm::value_ptr(normalMatrix));
+    m_cubeModel = glm::mat4(1.0f);
+    m_sphereModel = glm::mat4(1.0f);
+    m_sphereModel = glm::translate(m_sphereModel, glm::vec3(0.0, 1.0, 0.0));
+
+
+    /* CAMERA */
+    m_viewController = glmlv::ViewController(m_GLFWHandle.window(), 1.0);
+    m_viewController.setViewMatrix(glm::lookAt(
+            glm::vec3(4,3,3),
+            glm::vec3(0,0,0), 
+            glm::vec3(0,1,0)  
+        ));        
+
 
     glEnable(GL_DEPTH_TEST);
 
@@ -161,6 +221,18 @@ Application::~Application()
     }
 
     if (m_cubeIBO) {
+        glDeleteBuffers(1, &m_cubeIBO);
+    }
+
+    if (m_sphereVBO) {
+        glDeleteBuffers(1, &m_cubeVBO);
+    }
+
+    if (m_sphereVAO) {
+        glDeleteBuffers(1, &m_cubeVAO);
+    }
+
+    if (m_sphereIBO) {
         glDeleteBuffers(1, &m_cubeIBO);
     }
 
