@@ -46,8 +46,22 @@ private:
     GLint m_uMVMatrix;
     GLint m_uNormalMatrix;
 
+    GLint m_uDirectionalLightDir;
+    GLint m_uDirectionalLightIntensity;
+
+    GLint m_uPointLightPos;
+    GLint m_uPointLightIntensity;
+    GLint m_uKd;
+
     glm::mat4 m_cubeModel;
     glm::mat4 m_sphereModel;
+    glm::vec3 m_cubeColor;
+    glm::vec3 m_sphereColor;
+
+    glm::vec4 m_directionalLightDir;
+    glm::vec4 m_pointLightPos;
+    glm::vec3 m_directionalLightIntensity;
+    glm::vec3 m_pointLightIntensity;
 
     glmlv::GLProgram m_program;
 };

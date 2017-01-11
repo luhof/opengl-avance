@@ -20,6 +20,19 @@ int Application::run()
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        m_viewController.update((float)seconds/50.0f);
+        glm::mat4 view = m_viewController.getViewMatrix();
+
+        /* LIGHTS */
+
+        glm::vec4 uDirectionalLightDir_vs = view * m_directionalLightDir;
+        glm::vec4 uPointLightPos_vs = view * m_pointLightPos;
+
+        glUniform3f(m_uDirectionalLightDir, uDirectionalLightDir_vs.x, uDirectionalLightDir_vs.y, uDirectionalLightDir_vs.z);
+        glUniform3f(m_uDirectionalLightIntensity, m_directionalLightIntensity.x, m_directionalLightIntensity.y, m_directionalLightIntensity.z);
+        glUniform3f(m_uPointLightPos, uPointLightPos_vs.x, uPointLightPos_vs.y, uPointLightPos_vs.z);
+        glUniform3f(m_uPointLightIntensity, m_pointLightIntensity.x, m_pointLightIntensity.y, m_pointLightIntensity.z);
+
         glm::mat4 projection = glm::perspective(
             45.0f,         // The horizontal Field of View, in degrees : the amount of "zoom". Think "camera lens". Usually between 90° (extra wide) and 30° (quite zoomed in)
             (float)m_nWindowWidth / (float)m_nWindowHeight, // Aspect Ratio. Depends on the size of your window. Notice that 4/3 == 800/600 == 1280/960, sounds familiar ?
@@ -27,11 +40,11 @@ int Application::run()
             100.0f       // Far clipping plane. Keep as little as possible.
         );
 
-        m_viewController.update((float)seconds/50.0f);
-        glm::mat4 view = m_viewController.getViewMatrix();
-        /* rotate code */
-        m_cubeModel = glm::rotate(m_cubeModel, (float)seconds/20.0f, glm::vec3(1.0, 0.0, 0.0));
 
+        /* rotate code */
+        //m_cubeModel = glm::rotate(m_cubeModel, (float)seconds/1000.0f, glm::vec3(1.0, 0.0, 0.0));
+
+        /* THE CUBE */
         m_mvMatrix = view * m_cubeModel;
         m_mvpMatrix = projection * view * m_cubeModel;
         m_normalMatrix = glm::transpose(glm::inverse(m_mvMatrix));
@@ -39,14 +52,13 @@ int Application::run()
         glUniformMatrix4fv(m_uMVPMatrix, 1, false, glm::value_ptr(m_mvpMatrix));
         glUniformMatrix4fv(m_uMVMatrix, 1, false, glm::value_ptr(m_mvMatrix));
         glUniformMatrix4fv(m_uNormalMatrix, 1, false, glm::value_ptr(m_normalMatrix));
+        glUniform3fv(m_uKd, 1, glm::value_ptr(m_cubeColor));
 
-        // Put here rendering code
         glBindVertexArray(m_cubeVAO);
-
         glDrawElements(GL_TRIANGLES, m_cube.indexBuffer.size(), GL_UNSIGNED_INT, nullptr);
-
         glBindVertexArray(0);
 
+        /* THE SPHERE */
         m_mvMatrix = view * m_sphereModel;
         m_mvpMatrix = projection * view * m_sphereModel;
         m_normalMatrix = glm::transpose(glm::inverse(m_mvMatrix));
@@ -54,14 +66,11 @@ int Application::run()
         glUniformMatrix4fv(m_uMVPMatrix, 1, false, glm::value_ptr(m_mvpMatrix));
         glUniformMatrix4fv(m_uMVMatrix, 1, false, glm::value_ptr(m_mvMatrix));
         glUniformMatrix4fv(m_uNormalMatrix, 1, false, glm::value_ptr(m_normalMatrix));
+        glUniform3fv(m_uKd, 1, glm::value_ptr(m_sphereColor));
 
         glBindVertexArray(m_sphereVAO);
-
         glDrawElements(GL_TRIANGLES, m_sphere.indexBuffer.size(), GL_UNSIGNED_INT, nullptr);
-
         glBindVertexArray(0);
-        //
-        //
         //
 
         // GUI code:
@@ -74,6 +83,13 @@ int Application::run()
             if (ImGui::ColorEdit3("clearColor", clearColor)) {
                 glClearColor(clearColor[0], clearColor[1], clearColor[2], 1.f);
             }
+            ImGui::ColorEdit3("PointLightIntensity", (float*)&m_pointLightIntensity);
+            ImGui::ColorEdit3("DirectionalLightIntensity", (float*)&m_directionalLightIntensity);
+            ImGui::ColorEdit3("CubeColor", (float*)&m_cubeColor);
+            ImGui::ColorEdit3("SphereColor", (float*)&m_sphereColor);
+            ImGui::SliderFloat3("PointLightPos", (float*)&m_pointLightPos, -10.0, 10.0);
+            ImGui::SliderFloat3("Directional Light Dir", (float*)&m_directionalLightDir, -10.0, 10.0);
+
             ImGui::End();
         }
 
@@ -108,6 +124,13 @@ Application::Application(int argc, char** argv):
     
     m_cube = glmlv::makeCube();
     m_sphere = glmlv::makeSphere(10);
+    m_cubeColor = glm::vec3(1.0, 0.4, 0.3);
+    m_sphereColor = glm::vec3(1.0, 1.0, 0.9);
+
+    m_directionalLightDir = glm::vec4(0.2, -1.0, 0.6, 0.0);
+    m_pointLightPos = glm::vec4(1.0, 1.0, 1.0, 1.0);
+    m_directionalLightIntensity = glm::vec3(1.0, 1.0, 1.0);
+    m_pointLightIntensity = glm::vec3(1.0, 1.0, 1.0);
 
     // Doing the coolest cube VBO
     glGenBuffers(1, &m_cubeVBO);
@@ -197,8 +220,15 @@ Application::Application(int argc, char** argv):
     m_sphereModel = glm::translate(m_sphereModel, glm::vec3(0.0, 1.0, 0.0));
 
 
+    /* LIGHTS & COLOR */
+    m_uDirectionalLightDir = m_program.getUniformLocation("uDirectionalLightDir");
+    m_uDirectionalLightIntensity = m_program.getUniformLocation("uDirectionalLightIntensity");
+    m_uPointLightPos = m_program.getUniformLocation("uPointLightPos");
+    m_uPointLightIntensity = m_program.getUniformLocation("uPointLightIntensity");
+    m_uKd = m_program.getUniformLocation("uKd");
+
     /* CAMERA */
-    m_viewController = glmlv::ViewController(m_GLFWHandle.window(), 1.0);
+    m_viewController = glmlv::ViewController(m_GLFWHandle.window(), 0.5);
     m_viewController.setViewMatrix(glm::lookAt(
             glm::vec3(4,3,3),
             glm::vec3(0,0,0), 
