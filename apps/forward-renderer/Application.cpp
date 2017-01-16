@@ -33,6 +33,12 @@ int Application::run()
         glUniform3f(m_uPointLightPos, uPointLightPos_vs.x, uPointLightPos_vs.y, uPointLightPos_vs.z);
         glUniform3f(m_uPointLightIntensity, m_pointLightIntensity.x, m_pointLightIntensity.y, m_pointLightIntensity.z);
 
+        /* TEXTURE */
+
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(m_uKdSamplerLocation, 0); // Set the uniform to 0 because we use texture unit 0
+        glBindSampler(0, m_textureSampler); // Tell to OpenGL what sampler we want to use on this texture unit
+
         glm::mat4 projection = glm::perspective(
             45.0f,         // The horizontal Field of View, in degrees : the amount of "zoom". Think "camera lens". Usually between 90° (extra wide) and 30° (quite zoomed in)
             (float)m_nWindowWidth / (float)m_nWindowHeight, // Aspect Ratio. Depends on the size of your window. Notice that 4/3 == 800/600 == 1280/960, sounds familiar ?
@@ -49,6 +55,8 @@ int Application::run()
         m_mvpMatrix = projection * view * m_cubeModel;
         m_normalMatrix = glm::transpose(glm::inverse(m_mvMatrix));
 
+        glBindTexture(GL_TEXTURE_2D, m_textureCube);
+
         glUniformMatrix4fv(m_uMVPMatrix, 1, false, glm::value_ptr(m_mvpMatrix));
         glUniformMatrix4fv(m_uMVMatrix, 1, false, glm::value_ptr(m_mvMatrix));
         glUniformMatrix4fv(m_uNormalMatrix, 1, false, glm::value_ptr(m_normalMatrix));
@@ -63,6 +71,8 @@ int Application::run()
         m_mvpMatrix = projection * view * m_sphereModel;
         m_normalMatrix = glm::transpose(glm::inverse(m_mvMatrix));
 
+        glBindTexture(GL_TEXTURE_2D, m_textureSphere);
+
         glUniformMatrix4fv(m_uMVPMatrix, 1, false, glm::value_ptr(m_mvpMatrix));
         glUniformMatrix4fv(m_uMVMatrix, 1, false, glm::value_ptr(m_mvMatrix));
         glUniformMatrix4fv(m_uNormalMatrix, 1, false, glm::value_ptr(m_normalMatrix));
@@ -71,6 +81,12 @@ int Application::run()
         glBindVertexArray(m_sphereVAO);
         glDrawElements(GL_TRIANGLES, m_sphere.indexBuffer.size(), GL_UNSIGNED_INT, nullptr);
         glBindVertexArray(0);
+
+
+
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindSampler(0, 0); // Unbind the sampler
         //
 
         // GUI code:
@@ -122,6 +138,7 @@ Application::Application(int argc, char** argv):
 {
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
     
+
     m_cube = glmlv::makeCube();
     m_sphere = glmlv::makeSphere(10);
     m_cubeColor = glm::vec3(1.0, 0.4, 0.3);
@@ -147,7 +164,7 @@ Application::Application(int argc, char** argv):
     // Doing the coolest cube VAO
     glGenVertexArrays(1, &m_cubeVAO);
 
-        // Doing the coolest cube VBO
+    // Doing the coolest cube VBO
     glGenBuffers(1, &m_sphereVBO);
     glBindBuffer(GL_ARRAY_BUFFER, m_sphereVBO);
     glBufferStorage(GL_ARRAY_BUFFER, m_sphere.vertexBuffer.size() * sizeof(glmlv::Vertex3f3f2f), m_sphere.vertexBuffer.data(), 0);
@@ -213,11 +230,34 @@ Application::Application(int argc, char** argv):
     m_uMVPMatrix = m_program.getUniformLocation("uMVPMatrix");
     m_uMVMatrix = m_program.getUniformLocation("uMVMatrix");
     m_uNormalMatrix = m_program.getUniformLocation("uNormalMatrix");
-
+    m_uKdSamplerLocation = m_program.getUniformLocation("uKdSampler");
 
     m_cubeModel = glm::mat4(1.0f);
     m_sphereModel = glm::mat4(1.0f);
     m_sphereModel = glm::translate(m_sphereModel, glm::vec3(0.0, 1.0, 0.0));
+
+    /* TEXTURES */
+    
+    glmlv::Image2DRGBA image = glmlv::readImage("/home/6im3/lhorand/Documents/opengl-avance-build/bin/isaac.jpg");
+
+    glGenTextures(1, &m_textureSphere);
+    glBindTexture(GL_TEXTURE_2D, m_textureSphere);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, image.width(), image.height());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, image.width(), image.height(), GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    image = glmlv::readImage("/home/6im3/lhorand/Documents/opengl-avance-build/bin/sphere.jpg");
+
+    glGenTextures(1, &m_textureCube);
+    glBindTexture(GL_TEXTURE_2D, m_textureCube);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, image.width(), image.height());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, image.width(), image.height(), GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Note: no need to bind a sampler for modifying it: the sampler API is already direct_state_access
+    glGenSamplers(1, &m_textureSampler);
+    glSamplerParameteri(m_textureSampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glSamplerParameteri(m_textureSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 
     /* LIGHTS & COLOR */
@@ -234,7 +274,6 @@ Application::Application(int argc, char** argv):
             glm::vec3(0,0,0), 
             glm::vec3(0,1,0)  
         ));        
-
 
     glEnable(GL_DEPTH_TEST);
 

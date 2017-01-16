@@ -18,7 +18,6 @@ uniform vec3 uKd;
 out vec3 vPosition_vs; // Position du sommet transformé dans l'espace View
 out vec3 vNormal_vs; // Normale du sommet transformé dans l'espace View
 out vec2 vTexCoords; // Coordonnées de texture du sommet
-out vec3 color;
 
 void main()
 {
@@ -31,9 +30,7 @@ void main()
     vNormal_vs = vec3(uNormalMatrix * vertexNormal);
     vTexCoords = aVertexTexCoords;
 
-    float distToPointLight = length(uPointLightPos - vPosition_vs);
-	vec3 dirToPointLight = (uPointLightPos - vPosition_vs) / distToPointLight;
-	color = uKd * (uDirectionalLightIntensity * max(0.0, dot(vNormal_vs, uDirectionalLightDir)) + uPointLightIntensity * max(0.0, dot(vNormal_vs, dirToPointLight)) / (distToPointLight * distToPointLight));
+   
 
     // Calcul de la position projetée
     gl_Position = uMVPMatrix * vertexPosition;

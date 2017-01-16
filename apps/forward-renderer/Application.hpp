@@ -5,6 +5,7 @@
 #include <glmlv/GLProgram.hpp>
 #include <glmlv/simple_geometry.hpp>
 #include <glmlv/ViewController.hpp>
+#include <glmlv/Image2DRGBA.hpp>
 
 
 class Application
@@ -35,6 +36,8 @@ private:
     GLuint m_sphereIBO = 0;
     GLuint m_sphereVAO = 0;
 
+    
+
     glmlv::SimpleGeometry m_cube;
     glmlv::SimpleGeometry m_sphere;
 
@@ -52,11 +55,16 @@ private:
     GLint m_uPointLightPos;
     GLint m_uPointLightIntensity;
     GLint m_uKd;
+    GLint m_uKdSamplerLocation;
 
     glm::mat4 m_cubeModel;
     glm::mat4 m_sphereModel;
     glm::vec3 m_cubeColor;
     glm::vec3 m_sphereColor;
+
+    GLuint m_textureSphere = 0;
+    GLuint m_textureCube = 0;
+    GLuint m_textureSampler;
 
     glm::vec4 m_directionalLightDir;
     glm::vec4 m_pointLightPos;
@@ -64,4 +72,6 @@ private:
     glm::vec3 m_pointLightIntensity;
 
     glmlv::GLProgram m_program;
+
+    glmlv::Image2DRGBA m_image;
 };
