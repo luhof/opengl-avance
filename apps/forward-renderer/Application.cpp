@@ -139,10 +139,10 @@ Application::Application(int argc, char** argv):
     ImGui::GetIO().IniFilename = m_ImGuiIniFilename.c_str(); // At exit, ImGUI will store its windows positions in this file
     
 
-    m_cube = glmlv::makeCube();
+    /*m_cube = glmlv::makeCube();
     m_sphere = glmlv::makeSphere(10);
     m_cubeColor = glm::vec3(1.0, 0.4, 0.3);
-    m_sphereColor = glm::vec3(1.0, 1.0, 0.9);
+    m_sphereColor = glm::vec3(1.0, 1.0, 0.9);*/
 
     m_directionalLightDir = glm::vec4(0.2, -1.0, 0.6, 0.0);
     m_pointLightPos = glm::vec4(1.0, 1.0, 1.0, 1.0);
