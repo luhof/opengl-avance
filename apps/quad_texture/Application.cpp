@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <imgui.h>
 #include <glmlv/imgui_impl_glfw_gl3.hpp>
+#include <glmlv/Image2DRGBA.hpp>
 
 int Application::run()
 {
@@ -17,10 +18,14 @@ int Application::run()
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Put here rendering code
+
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(m_uSamplerLocation, 0); // Set the uniform to 0 because we use texture unit 0
+        glBindSampler(0, m_samplerObject); // Tell to OpenGL what sampler we want to use on this texture unit
+
+        glBindTexture(GL_TEXTURE_2D, m_texObject);
         glBindVertexArray(m_quadVAO);
-
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr); // We draw 2 triangles for a quad, so 3 * 2 = 6 indices must be used
-
         glBindVertexArray(0);
 
         // GUI code:
@@ -59,10 +64,10 @@ int Application::run()
 struct Vertex
 {
     glm::vec2 position;
-    glm::vec3 color;
+    glm::vec2 texCoords;
 
-    Vertex(glm::vec2 position, glm::vec3 color):
-        position(position), color(color)
+    Vertex(glm::vec2 position, glm::vec2 texCoords):
+        position(position), texCoords(texCoords)
     {}
 };
 
@@ -70,15 +75,16 @@ Application::Application(int argc, char** argv):
     m_AppPath{ glmlv::fs::path{ argv[0] } },
     m_AppName{ m_AppPath.stem().string() },
     m_ImGuiIniFilename{ m_AppName + ".imgui.ini" },
-    m_ShadersRootPath{ m_AppPath.parent_path() / "shaders" }
+    m_ShadersRootPath{ m_AppPath.parent_path() / "shaders" },
+    m_AssetsRootPath{ m_AppPath.parent_path() / "assets" }
 {
     glGenBuffers(1, &m_quadVBO);
 
     Vertex quadVertices[] = {
-        Vertex { glm::vec2(-0.5, -0.5), glm::vec3(1, 0, 0) },
-        Vertex { glm::vec2(0.5, -0.5), glm::vec3(0, 1, 0) },
-        Vertex { glm::vec2(0.5, 0.5), glm::vec3(0, 0, 1) },
-        Vertex { glm::vec2(-0.5, 0.5), glm::vec3(1, 1, 1) }
+        Vertex { glm::vec2(-0.5, -0.5), glm::vec2(0, 1) },
+        Vertex { glm::vec2(0.5, -0.5), glm::vec2(1, 1) },
+        Vertex { glm::vec2(0.5, 0.5), glm::vec2(1, 0) },
+        Vertex { glm::vec2(-0.5, 0.5), glm::vec2(0, 0) }
     };
 
     glBindBuffer(GL_ARRAY_BUFFER, m_quadVBO);
@@ -103,11 +109,11 @@ Application::Application(int argc, char** argv):
     glGenVertexArrays(1, &m_quadVAO);
 
     // Here we load and compile shaders from the library
-    m_program = glmlv::compileProgram({ m_ShadersRootPath / "glmlv" / "position2_color3.vs.glsl", m_ShadersRootPath / "glmlv" / "color3.fs.glsl" });
+    m_program = glmlv::compileProgram({ m_ShadersRootPath / m_AppName / "texture.vs.glsl", m_ShadersRootPath / m_AppName / "texture.fs.glsl" });
 
     // Here we use glGetAttribLocation(program, attribname) to obtain attrib locations; We could also directly use locations if they are set in the vertex shader (cf. triangle app)
     const GLint positionAttrLocation = glGetAttribLocation(m_program.glId(), "aPosition");
-    const GLint colorAttrLocation = glGetAttribLocation(m_program.glId(), "aColor");
+    const GLint texCoordsAttrLocation = glGetAttribLocation(m_program.glId(), "aTexCoords");
 
     glBindVertexArray(m_quadVAO);
 
@@ -116,14 +122,33 @@ Application::Application(int argc, char** argv):
     glEnableVertexAttribArray(positionAttrLocation);
     glVertexAttribPointer(positionAttrLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*) offsetof(Vertex, position));
 
-    glEnableVertexAttribArray(colorAttrLocation);
-    glVertexAttribPointer(colorAttrLocation, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*) offsetof(Vertex, color));
+    glEnableVertexAttribArray(texCoordsAttrLocation);
+    glVertexAttribPointer(texCoordsAttrLocation, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*) offsetof(Vertex, texCoords));
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_quadIBO);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glBindVertexArray(0);
+
+    {
+        auto image = glmlv::readImage(m_AssetsRootPath / m_AppName / "textures" / "opengl-logo.png");
+
+        glActiveTexture(GL_TEXTURE0);
+
+        glGenTextures(1, &m_texObject);
+        glBindTexture(GL_TEXTURE_2D, m_texObject);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, image.width(), image.height());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, image.width(), image.height(), GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    // Note: no need to bind a sampler for modifying it: the sampler API is already direct_state_access
+    glGenSamplers(1, &m_samplerObject);
+    glSamplerParameteri(m_samplerObject, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glSamplerParameteri(m_samplerObject, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    m_uSamplerLocation = glGetUniformLocation(m_program.glId(), "uSampler");
 
     m_program.use();
 }
@@ -140,6 +165,14 @@ Application::~Application()
 
     if (m_quadVAO) {
         glDeleteBuffers(1, &m_quadVAO);
+    }
+
+    if (m_texObject) {
+        glDeleteTextures(1, &m_texObject);
+    }
+
+    if (m_samplerObject) {
+        glDeleteSamplers(1, &m_samplerObject);
     }
 
     ImGui_ImplGlfwGL3_Shutdown();
